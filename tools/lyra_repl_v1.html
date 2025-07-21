@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL)</title>
+    <title>Lyra 互動式環境 (REPL v1.2.1)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code,Inter,monospace&display=swap" rel="stylesheet">
     <style>
@@ -44,7 +44,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.2.1</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -59,18 +59,11 @@
     </div>
 
     <script type="module">
-        // 這是我們的「駕駛艙」邏輯
-        // 在一個真實的專案中，我們會用 import 來載入引擎
-        // import { tokenize } from '../core/lexer.js';
-        // import { Parser } from '../core/parser.js';
-        // import { Evaluator } from '../core/evaluator.js';
-        // 但為了讓這個 HTML 檔案能獨立運作，我們將核心程式碼直接包含進來。
+        // --- 引擎：Lyra Core Engine ---
 
-        // --- 引擎：從 user uploaded files 整合 ---
-
-        // 1. Lexer (來自 lexer.js)
+        // 1. Lexer (詞法分析器)
         const TokenType = { KEYWORD: '關鍵字', IDENTIFIER: '識別符', STRING: '文字', NUMBER: '數字', OPERATOR: '運算符', PUNCTUATION: '標點符號', EOF: '檔案結尾' };
-        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1};
+        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         function tokenize(code) {
             const tokens = []; let current = 0; let line = 1;
@@ -88,7 +81,7 @@
             tokens.push(new Token(TokenType.EOF, 'EOF', line)); return tokens;
         }
 
-        // 2. Parser (來自 parser.js，並為 REPL 做了強化)
+        // 2. Parser (語法分析器)
         class Parser {
             constructor(tokens) { this.tokens = tokens; this.current = 0; }
             parse() { const stmts = []; while (!this.isAtEnd()) { stmts.push(this.parseStatement()); } return { type: 'Program', body: stmts }; }
@@ -112,7 +105,18 @@
             parseBlock() { const body = []; while (!this.check(TokenType.KEYWORD, 'end') && !this.isAtEnd()) { body.push(this.parseStatement()); } this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束區塊。"); return body; }
             parseExpression() { return this.parseAddition(); }
             parseAddition() { let left = this.parseMultiplication(); while (this.match(TokenType.OPERATOR, '+') || this.match(TokenType.OPERATOR, '-')) { const op = this.tokens[this.current - 1].value; const right = this.parseMultiplication(); left = { type: 'BinaryExpression', left, operator: op, right }; } return left; }
-            parseMultiplication() { let left = this.parseAccess(); while (this.match(TokenType.OPERATOR, '*') || this.match(TokenType.OPERATOR, '/')) { const op = this.tokens[this.current - 1].value; const right = this.parseAccess(); left = { type: 'BinaryExpression', left, operator: op, right }; } return left; }
+            parseMultiplication() { let left = this.parseUnary(); while (this.match(TokenType.OPERATOR, '*') || this.match(TokenType.OPERATOR, '/')) { const op = this.tokens[this.current - 1].value; const right = this.parseUnary(); left = { type: 'BinaryExpression', left, operator: op, right }; } return left; }
+            
+            // [技術總監註] Bug Fix: 新增 parseUnary 方法來處理負號
+            parseUnary() {
+                if (this.match(TokenType.OPERATOR, '-')) {
+                    const operator = this.tokens[this.current - 1].value;
+                    const right = this.parseUnary();
+                    return { type: 'UnaryExpression', operator: operator, right: right };
+                }
+                return this.parseAccess();
+            }
+
             parseAccess() { let expr = this.parseTerm(); while (this.match(TokenType.KEYWORD, 'at')) { const index = this.parseExpression(); expr = { type: 'AccessExpression', object: expr, index }; } return expr; }
             parseTerm() {
                 if (this.match(TokenType.NUMBER)) return { type: 'NumericLiteral', value: this.tokens[this.current - 1].value };
@@ -122,9 +126,11 @@
                 if (this.match(TokenType.KEYWORD, 'length')) return this.parseLengthExpression();
                 if (this.match(TokenType.KEYWORD, 'uppercase') || this.match(TokenType.KEYWORD, 'lowercase')) return this.parseCaseExpression();
                 if (this.match(TokenType.KEYWORD, 'split')) return this.parseSplitExpression();
+                if (this.match(TokenType.KEYWORD, 'round')) return this.parseRoundExpression();
                 if (this.match(TokenType.IDENTIFIER)) return { type: 'Identifier', name: this.tokens[this.current - 1].value };
                 throw new Error("預期是數字、文字、列表或變數。");
             }
+            parseRoundExpression() { this.consume(TokenType.KEYWORD, 'of', "在 'round' 後面需要 'of'。"); const number = this.parseExpression(); return { type: 'RoundExpression', number }; }
             parseSplitExpression() { const stringToSplit = this.parseExpression(); this.consume(TokenType.KEYWORD, 'by', "在 'split' 的目標文字後需要 'by'。"); const delimiter = this.parseExpression(); return { type: 'SplitExpression', string: stringToSplit, delimiter }; }
             parseListLiteral() { this.consume(TokenType.KEYWORD, 'list', "在 'a' 後面需要 'list'。"); this.consume(TokenType.KEYWORD, 'of', "在 'list' 後面需要 'of'。"); const elements = []; if (!this.isAtEnd() && !this.check(TokenType.KEYWORD)) { do { elements.push(this.parseExpression()); } while (this.match(TokenType.PUNCTUATION, ',')); } return { type: 'ListLiteral', elements }; }
             parseCountExpression() { this.consume(TokenType.KEYWORD, 'of', "在 'count' 後面需要 'of'。"); const list = this.parseExpression(); return { type: 'CountExpression', list }; }
@@ -139,7 +145,7 @@
             match(type, value) { if (!this.check(type, value)) return false; this.current++; return true; }
         }
 
-        // 3. Evaluator (來自 evaluator.js)
+        // 3. Evaluator (執行器)
         class Evaluator {
             constructor() { this.environment = {}; }
             evaluate(node, env) {
@@ -156,6 +162,17 @@
                     case 'LengthExpression': const targetString = this.evaluate(node.string, env); if (typeof targetString !== 'string') throw new Error("只能對文字使用 'length of'。"); return targetString.length;
                     case 'CaseExpression': const strCase = this.evaluate(node.string, env); if (typeof strCase !== 'string') throw new Error("只能對文字使用大小寫轉換。"); if (node.caseType === 'uppercase') return strCase.toUpperCase(); if (node.caseType === 'lowercase') return strCase.toLowerCase(); break;
                     case 'SplitExpression': const strToSplit = this.evaluate(node.string, env); const delimiter = this.evaluate(node.delimiter, env); if (typeof strToSplit !== 'string' || typeof delimiter !== 'string') throw new Error("split by 的目標和分隔符號都必須是文字。"); return strToSplit.split(delimiter);
+                    case 'RoundExpression': const numberToRound = this.evaluate(node.number, env); if (typeof numberToRound !== 'number') { throw new Error("只能對數字使用 'round of'。"); } return Math.round(numberToRound);
+                    
+                    // [技術總監註] Bug Fix: 新增 UnaryExpression 的處理邏輯
+                    case 'UnaryExpression':
+                        const rightUnary = this.evaluate(node.right, env);
+                        if (node.operator === '-') {
+                            if (typeof rightUnary !== 'number') { throw new Error("一元運算符 '-' 只能用於數字。"); }
+                            return -rightUnary;
+                        }
+                        return rightUnary;
+
                     case 'BinaryExpression': const left = this.evaluate(node.left, env); const right = this.evaluate(node.right, env); if (node.operator === '*') return left * right; if (node.operator === '/') return left / right; if (node.operator === '+') return left + right; if (node.operator === '-') return left - right; break;
                     case 'NumericLiteral': return node.value;
                     case 'StringLiteral': return node.value;
@@ -168,20 +185,18 @@
         // --- REPL 駕駛艙邏輯 ---
         const outputEl = document.getElementById('repl-output');
         const inputEl = document.getElementById('repl-input');
-        const evaluator = new Evaluator(); // 持久化的執行器，保存環境狀態
+        const evaluator = new Evaluator();
 
         function addOutputLine(text, className = '') {
             const line = document.createElement('div');
             line.className = `output-line ${className}`;
-            line.innerHTML = text; // 使用 innerHTML 來渲染 span
+            line.innerHTML = text;
             outputEl.appendChild(line);
         }
 
-        // 加入歡迎訊息
-        addOutputLine('Welcome to Lyra v2.0 REPL!');
-        addOutputLine('Project files have been structured.');
-        addOutputLine('Try: <span class="text-green-400">my_list is a list of "a", "b"</span>');
-        addOutputLine('Then: <span class="text-green-400">count of my_list</span>');
+        addOutputLine('Welcome to Lyra v2.1 REPL (Bugfix-Release)!');
+        addOutputLine('Unary minus operator is now supported.');
+        addOutputLine('Try: <span class="text-green-400">say round of -4.5</span>');
         addOutputLine('&nbsp;');
 
 
@@ -211,7 +226,7 @@
                 }
 
                 inputEl.value = '';
-                outputEl.scrollTop = outputEl.scrollHeight; // 自動滾動到底部
+                outputEl.scrollTop = outputEl.scrollHeight;
             }
         });
     </script>
