@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v1.9)</title>
+    <title>Lyra 互動式環境 (REPL v1.10)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code,Inter,monospace,Noto+Serif+TC&display=swap" rel="stylesheet">
     <style>
@@ -47,7 +47,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.9 - Error Enhancement</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.10 - Error Enhancement</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -77,7 +77,6 @@
         const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         
-        // [技術總監註]：Lexer 升級，強化字串錯誤處理
         function tokenize(code) {
             const tokens = [];
             let current = 0;
@@ -92,7 +91,6 @@
                     const startLine = line;
                     current++;
                     let value = '';
-                    
                     while (current < code.length && code[current] !== quoteType) {
                         const otherQuote = quoteType === '"' ? "'" : '"';
                         if (code[current] === otherQuote) {
@@ -100,7 +98,6 @@
                             const whisper = `故事以 ${quoteType} 開篇，卻想用 ${otherQuote} 結尾，這讓詩句的節奏錯亂了。請用同一個符號來擁抱這段文字。`;
                             throw new LyraError(`${directMessage} (在第 ${line} 行)`, whisper);
                         }
-
                         if (code[current] === '{' && (code[current-1] !== '\\')) {
                             if (value.length > 0) tokens.push(new Token(TokenType.STRING, value, startLine));
                             value = '';
@@ -128,13 +125,11 @@
                             current++;
                         }
                     }
-                    
                     if (current >= code.length) {
                         const directMessage = `未閉合的字串。`;
                         const whisper = `這段文字以 ${quoteType} 開啟了它的故事，卻似乎忘了用同一個符號來畫上句點。`;
                         throw new LyraError(`${directMessage} (從第 ${startLine} 行開始)`, whisper);
                     }
-                    
                     if (value.length > 0) tokens.push(new Token(TokenType.STRING, value, line));
                     current++;
                     continue;
@@ -143,14 +138,32 @@
                 if (char === '(' || char === ')' || char === ',') { tokens.push(new Token(TokenType.PUNCTUATION, char, line)); current++; continue; }
                 if (/[+\-*/]/.test(char)) { tokens.push(new Token(TokenType.OPERATOR, char, line)); current++; continue; }
                 if (/\d/.test(char)) { let value = ''; while (current < code.length && /[0-9.]/.test(code[current])) { value += code[current]; current++; } tokens.push(new Token(TokenType.NUMBER, parseFloat(value), line)); continue; }
-                if (/[a-zA-Z_]/.test(char)) { let value = ''; while (current < code.length && /[a-zA-Z0-9_]/.test(code[current])) { value += code[current]; current++; } const type = KEYWORDS[value] ? TokenType.KEYWORD : TokenType.IDENTIFIER; tokens.push(new Token(type, value, line)); continue; }
+                
+                // [技術總監註]：升級識別符邏輯，以處理無效的變數命名
+                if (/[a-zA-Z_]/.test(char)) {
+                    let value = '';
+                    while (current < code.length && /[a-zA-Z0-9_]/.test(code[current])) {
+                        value += code[current];
+                        current++;
+                    }
+                    // 檢查下一個字元是否為連字號 '-'
+                    if (current < code.length && code[current] === '-') {
+                        const directMessage = `無效的變數名稱。`;
+                        const whisper = `變數的名字裡不能包含 '-' 符號，它會讓我想起減法。也許，溫柔的底線 '_' 會是更好的連結？`;
+                        throw new LyraError(`${directMessage} (在第 ${line} 行)`, whisper);
+                    }
+                    const type = KEYWORDS[value] ? TokenType.KEYWORD : TokenType.IDENTIFIER;
+                    tokens.push(new Token(type, value, line));
+                    continue;
+                }
+
                 throw new Error(`無法識別的字元 '${char}' 在第 ${line} 行。`);
             }
             tokens.push(new Token(TokenType.EOF, 'EOF', line));
             return tokens;
         }
 
-        // 2. Parser (語法分析器)
+        // 2. Parser (語法分析器) - 此處無更動
         class Parser {
             constructor(tokens) { this.tokens = tokens; this.current = 0; this.commandKeywords = ['say', 'repeat', 'add', 'remove', 'round', 'count', 'length', 'split', 'uppercase', 'lowercase', 'when', 'define', 'is', 'for', 'each', 'in']; }
             levenshtein(a, b) { const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator,); } } return matrix[b.length][a.length]; }
@@ -267,9 +280,9 @@
             line.innerHTML = text;
             outputEl.appendChild(line);
         }
-        addOutputLine('Welcome to Lyra REPL v1.9!');
-        addOutputLine('Error system is now enhanced for strings.');
-        addOutputLine('Try: <span class="text-green-400">say "Mismatched quotes\'</span>');
+        addOutputLine('Welcome to Lyra REPL v1.10!');
+        addOutputLine('Error system is now enhanced for invalid names.');
+        addOutputLine('Try: <span class="text-green-400">my-name is "Lyra"</span>');
         addOutputLine('&nbsp;');
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
