@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v1.8.2)</title>
+    <title>Lyra 互動式環境 (REPL v1.9)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code,Inter,monospace,Noto+Serif+TC&display=swap" rel="stylesheet">
     <style>
@@ -47,7 +47,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.8.2 - Bugfix Release</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.9 - Error Enhancement</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -77,6 +77,7 @@
         const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         
+        // [技術總監註]：Lexer 升級，強化字串錯誤處理
         function tokenize(code) {
             const tokens = [];
             let current = 0;
@@ -85,15 +86,25 @@
                 let char = code[current];
                 if (/\s/.test(char)) { if (char === '\n') line++; current++; continue; }
                 if (char === '#') { while (current < code.length && code[current] !== '\n') current++; continue; }
+                
                 if (char === '"' || char === "'") {
                     const quoteType = char;
+                    const startLine = line;
                     current++;
                     let value = '';
+                    
                     while (current < code.length && code[current] !== quoteType) {
+                        const otherQuote = quoteType === '"' ? "'" : '"';
+                        if (code[current] === otherQuote) {
+                            const directMessage = `字串引號不匹配。`;
+                            const whisper = `故事以 ${quoteType} 開篇，卻想用 ${otherQuote} 結尾，這讓詩句的節奏錯亂了。請用同一個符號來擁抱這段文字。`;
+                            throw new LyraError(`${directMessage} (在第 ${line} 行)`, whisper);
+                        }
+
                         if (code[current] === '{' && (code[current-1] !== '\\')) {
-                            if (value.length > 0) tokens.push(new Token(TokenType.STRING, value, line));
+                            if (value.length > 0) tokens.push(new Token(TokenType.STRING, value, startLine));
                             value = '';
-                            tokens.push(new Token(TokenType.INTERP_START, '{', line));
+                            tokens.push(new Token(TokenType.INTERP_START, '{', startLine));
                             current++;
                             let brace_level = 1;
                             let expr_code = '';
@@ -103,20 +114,32 @@
                                 if(brace_level > 0) expr_code += code[current];
                                 current++;
                             }
-                            if (brace_level > 0) throw new Error(`未閉合的字串內嵌，從第 ${line} 行開始。`);
+                            if (brace_level > 0) {
+                                 const directMessage = `未閉合的字串內嵌。`;
+                                 const whisper = `在文字的風景中，我看見一個敞開的 {，它在等待一個 } 來讓風景完整。`;
+                                 throw new LyraError(`${directMessage} (從第 ${startLine} 行開始)`, whisper);
+                            }
                             const inner_tokens = tokenize(expr_code).filter(t => t.type !== TokenType.EOF);
                             tokens.push(...inner_tokens);
                             tokens.push(new Token(TokenType.INTERP_END, '}', line));
                         } else {
+                            if (code[current] === '\n') line++;
                             value += code[current];
                             current++;
                         }
                     }
+                    
+                    if (current >= code.length) {
+                        const directMessage = `未閉合的字串。`;
+                        const whisper = `這段文字以 ${quoteType} 開啟了它的故事，卻似乎忘了用同一個符號來畫上句點。`;
+                        throw new LyraError(`${directMessage} (從第 ${startLine} 行開始)`, whisper);
+                    }
+                    
                     if (value.length > 0) tokens.push(new Token(TokenType.STRING, value, line));
-                    if (current >= code.length) throw new Error(`未閉合的字串，從第 ${line} 行開始。`);
                     current++;
                     continue;
                 }
+
                 if (char === '(' || char === ')' || char === ',') { tokens.push(new Token(TokenType.PUNCTUATION, char, line)); current++; continue; }
                 if (/[+\-*/]/.test(char)) { tokens.push(new Token(TokenType.OPERATOR, char, line)); current++; continue; }
                 if (/\d/.test(char)) { let value = ''; while (current < code.length && /[0-9.]/.test(code[current])) { value += code[current]; current++; } tokens.push(new Token(TokenType.NUMBER, parseFloat(value), line)); continue; }
@@ -129,11 +152,7 @@
 
         // 2. Parser (語法分析器)
         class Parser {
-            constructor(tokens) {
-                this.tokens = tokens;
-                this.current = 0;
-                this.commandKeywords = ['say', 'repeat', 'add', 'remove', 'round', 'count', 'length', 'split', 'uppercase', 'lowercase', 'when', 'define', 'is', 'for', 'each', 'in'];
-            }
+            constructor(tokens) { this.tokens = tokens; this.current = 0; this.commandKeywords = ['say', 'repeat', 'add', 'remove', 'round', 'count', 'length', 'split', 'uppercase', 'lowercase', 'when', 'define', 'is', 'for', 'each', 'in']; }
             levenshtein(a, b) { const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator,); } } return matrix[b.length][a.length]; }
             findSimilarKeyword(word) { let minDistance = Infinity; let suggestion = null; for (const keyword of this.commandKeywords) { const distance = this.levenshtein(word.toLowerCase(), keyword); if (distance <= 2 && distance < minDistance) { minDistance = distance; suggestion = keyword; } } return suggestion; }
             parse() { const stmts = []; while (!this.isAtEnd()) { stmts.push(this.parseStatement()); } return { type: 'Program', body: stmts }; }
@@ -146,34 +165,18 @@
                 if (this.check(TokenType.IDENTIFIER)) { const potentialTypo = this.peek().value; const suggestion = this.findSimilarKeyword(potentialTypo); if (suggestion) { const directMessage = `我不認識 '${potentialTypo}' 這個指令。`; const whisper = `我猜，你是不是想寫 '${suggestion}'？光影搖曳，字詞有時也會跳錯舞步。`; throw this.createParseError(directMessage, whisper); } }
                 return this.parseExpressionStatement();
             }
-
-            // [技術總監註]：Bug Fix! 重寫 parseTerm 的字串處理邏輯
             parseTerm() {
                 if (this.match(TokenType.NUMBER)) return { type: 'NumericLiteral', value: this.tokens[this.current - 1].value };
-                
                 if (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
-                    // 如果只有一個簡單字串，直接回傳
-                    if (this.check(TokenType.STRING) && this.peekNext().type !== TokenType.INTERP_START) {
-                        const token = this.tokens[this.current++];
-                        return { type: 'StringLiteral', value: token.value };
-                    }
-                    
-                    // 否則，它是一個組合字串，我們收集所有部分
+                    if (this.check(TokenType.STRING) && this.peekNext().type !== TokenType.INTERP_START) { const token = this.tokens[this.current++]; return { type: 'StringLiteral', value: token.value }; }
                     const parts = [];
                     while (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
-                        if (this.match(TokenType.STRING)) {
-                            parts.push(this.tokens[this.current - 1].value);
-                        } else if (this.match(TokenType.INTERP_START)) {
-                            const expr = this.parseExpression();
-                            parts.push(expr);
-                            this.consume(TokenType.INTERP_END, null, "字串內嵌需要 '}' 來閉合。");
-                        } else {
-                            break;
-                        }
+                        if (this.match(TokenType.STRING)) { parts.push(this.tokens[this.current - 1].value); } 
+                        else if (this.match(TokenType.INTERP_START)) { const expr = this.parseExpression(); parts.push(expr); this.consume(TokenType.INTERP_END, null, "字串內嵌需要 '}' 來閉合。"); } 
+                        else { break; }
                     }
                     return { type: 'InterpolatedString', parts };
                 }
-
                 if (this.match(TokenType.KEYWORD, 'a')) return this.parseListLiteral();
                 if (this.match(TokenType.KEYWORD, 'count')) return this.parseCountExpression();
                 if (this.match(TokenType.KEYWORD, 'length')) return this.parseLengthExpression();
@@ -183,7 +186,6 @@
                 if (this.match(TokenType.IDENTIFIER)) return { type: 'Identifier', name: this.tokens[this.current - 1].value };
                 throw this.createParseError("預期是數字、文字、列表或變數。");
             }
-
             parseExpressionStatement() { const expr = this.parseExpression(); return { type: 'ExpressionStatement', expression: expr }; }
             parseRemoveStatement() { this.consume(TokenType.KEYWORD, 'item', "在 'remove' 後面需要 'item'。"); this.consume(TokenType.KEYWORD, 'at', "在 'item' 後面需要 'at'。"); const index = this.parseExpression(); this.consume(TokenType.KEYWORD, 'from', "在索引後需要 'from'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'from' 後面需要列表名稱。"); return { type: 'RemoveStatement', index, list: listName.value }; }
             parseAddStatement() { const value = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "在 'add' 的值後面需要 'to'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'to' 後面需要列表名稱。"); return { type: 'AddStatement', value, list: listName.value }; }
@@ -223,11 +225,8 @@
                         case 'InterpolatedString':
                             let result = '';
                             for (const part of node.parts) {
-                                if (typeof part === 'string') {
-                                    result += part;
-                                } else {
-                                    result += this.evaluate(part, env);
-                                }
+                                if (typeof part === 'string') { result += part; } 
+                                else { result += this.evaluate(part, env); }
                             }
                             return result;
                         case 'StringLiteral': return node.value;
@@ -268,10 +267,9 @@
             line.innerHTML = text;
             outputEl.appendChild(line);
         }
-        addOutputLine('Welcome to Lyra REPL v1.8.2!');
-        addOutputLine('String interpolation is now fixed.');
-        addOutputLine('Try: <span class="text-green-400">name is "Lyra"</span>');
-        addOutputLine('Then: <span class="text-green-400">say "Hello, {name}!"</span>');
+        addOutputLine('Welcome to Lyra REPL v1.9!');
+        addOutputLine('Error system is now enhanced for strings.');
+        addOutputLine('Try: <span class="text-green-400">say "Mismatched quotes\'</span>');
         addOutputLine('&nbsp;');
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
