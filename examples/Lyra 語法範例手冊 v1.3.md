@@ -1,4 +1,4 @@
-# Lyra 語法範例手冊 v1.3
+# Lyra 語法範例手冊 v1.4
 
 本手冊旨在提供 Lyra 程式語言所有已實作功能的清晰範例，作為開發者與學習者的速查指南。
 
@@ -183,7 +183,7 @@ say words # -> ["Lyra", "is", "fun"]
 
 ```lyra
 say 5 + 2 * 3   # -> 11
-say (5 + 2) * 3 # -> 21
+say (5 + 2) * 3 # -> 21 <- 尚未實作到 repl
 say 10 / 2 - 1  # -> 4
 say -4.5 + 2    # -> -2.5
 ```
@@ -204,7 +204,7 @@ say round of -4.5 # -> -4
 
 > **注意**：目前我們的 REPL 互動環境尚不支援多行輸入，因此以下範例暫時無法在 REPL 中直接測試。
 
-### 6.1 `repeat ... times` (計次迴圈)
+### 6.1 `repeat ... times` (計次迴圈) <- 尚未實作到 repl
 
 重複執行一個區塊固定的次數。
 
@@ -214,7 +214,7 @@ repeat 3 times
 end
 ```
 
-### 6.2 `repeat for each ... in ...` (遍歷迴圈)
+### 6.2 `repeat for each ... in ...` (遍歷迴圈) <- 尚未實作到 repl
 
 遍歷一個列表中的每一個項目。
 
@@ -225,9 +225,29 @@ repeat for each item in my_list
 end
 ```
 
-### 6.3 `when ... else ... end` (條件判斷)
+### 6.3 `when ... end` (條件判斷)
 
-用於根據條件是否成立來執行不同的程式碼區塊。`else` 部分是可選的。
+用於根據條件是否成立來執行不同的程式碼區塊。支援基本條件、雙分支和多條件判斷。
+
+#### 6.3.1 基本條件判斷
+
+最簡單的條件判斷形式，當條件為真時執行程式碼區塊。
+
+```lyra
+age is 20
+when age >= 18
+    say "你是成年人了！"
+end
+
+is_raining is false
+when is_raining
+    say "出門記得帶傘。"
+end
+```
+
+#### 6.3.2 雙分支條件判斷 (`when ... else ... end`)
+
+當條件為真時執行第一個區塊，否則執行 `else` 區塊。
 
 ```lyra
 temperature is 25
@@ -237,9 +257,126 @@ else
     say "天氣很舒適。"
 end
 
-# 一個沒有 else 的例子
-is_raining is false
-when is_raining
-    say "出門記得帶傘。"
+score is 75
+when score >= 60
+    say "恭喜你及格了！"
+else
+    say "需要再加油喔！"
 end
 ```
+
+#### 6.3.3 多條件判斷 (`else when`)
+
+支援多個條件的連續判斷，類似其他語言的 `else if`。
+
+```lyra
+score is 85
+when score >= 90
+    say "優秀！A級成績"
+else when score >= 80
+    say "良好！B級成績"
+else when score >= 60
+    say "及格！C級成績"
+else
+    say "需要加油！"
+end
+
+weather is "sunny"
+when weather == "sunny"
+    say "今天天氣晴朗！"
+else when weather == "rainy"
+    say "今天下雨，記得帶傘"
+else when weather == "cloudy"
+    say "今天多雲"
+else
+    say "天氣狀況未知"
+end
+```
+
+#### 6.3.4 比較運算符
+
+Lyra 支援以下比較運算符：
+
+- `==` : 等於
+- `!=` : 不等於
+- `>` : 大於
+- `<` : 小於
+- `>=` : 大於等於
+- `<=` : 小於等於
+
+```lyra
+# 數字比較
+num1 is 10
+num2 is 20
+when num1 < num2
+    say "num1 小於 num2"
+end
+
+# 文字比較
+name is "Lyra"
+when name == "Lyra"
+    say "歡迎使用 Lyra 語言！"
+end
+
+when name != "Python"
+    say "這不是 Python"
+end
+
+# 列表長度比較
+tasks is a list of "寫作", "畫畫", "彈吉他"
+number is count of tasks
+when  number > 2
+    say "任務很多呢！"
+else when number == 0
+    say "沒有任務"
+else
+    say "任務數量剛好"
+end
+```
+
+#### 6.3.5 實用範例
+
+```lyra
+# 成績評等系統
+student_score is 88
+when student_score >= 90
+    say "成績：A+ 優秀！"
+else when student_score >= 80
+    say "成績：A 良好！"
+else when student_score >= 70
+    say "成績：B 不錯！"
+else when student_score >= 60
+    say "成績：C 及格"
+else
+    say "成績：F 需要重修"
+end
+
+# 購物清單檢查
+shopping_list is a list of "牛奶", "麵包", "雞蛋", "水果"
+item_count is count of shopping_list
+
+when item_count > 5
+    say "購物清單太長了，分批購買吧！"
+else when item_count > 2
+    say "購物清單長度適中"
+else when item_count > 0
+    say "只有幾樣東西要買"
+else
+    say "購物清單是空的"
+end
+
+# 用戶權限檢查
+user_role is "admin"
+when user_role == "admin"
+    say "歡迎管理員！您擁有完整權限"
+else when user_role == "user"
+    say "歡迎用戶！您可以瀏覽內容"
+else when user_role == "guest"
+    say "歡迎訪客！請先註冊"
+else
+    say "未知的用戶角色"
+end
+```
+
+> **設計理念：自然語言式的條件判斷**  
+> Lyra 的條件判斷語法設計得像自然語言一樣易讀。`when age >= 18` 讀起來就像「當年齡大於等於18時」，而 `else when score >= 80` 則像「否則當分數大於等於80時」。這種設計讓程式碼的意圖更加清晰，特別適合初學者理解。

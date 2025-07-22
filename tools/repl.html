@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v1.10)</title>
+    <title>Lyra 互動式環境 (REPL v2.0.3)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code,Inter,monospace,Noto+Serif+TC&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500&family=Noto+Serif+TC:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .repl-container {
@@ -19,6 +19,26 @@
             outline: none;
             color: #a9b1d6;
             width: 100%;
+            resize: none;
+            overflow: hidden;
+            min-height: 1.5em;
+            max-height: 200px;
+            line-height: 1.5;
+            font-family: 'Fira Code', monospace;
+            padding: 0;
+            margin: 0;
+        }
+        .input-container {
+            position: relative;
+        }
+        .input-hint {
+            position: absolute;
+            bottom: -20px;
+            right: 0;
+            font-size: 10px;
+            color: #565f89;
+            pointer-events: none;
+            opacity: 0.7;
         }
         .prompt {
             color: #bb9af7;
@@ -54,9 +74,12 @@
             <!-- 初始歡迎訊息會由 JS 動態加入 -->
         </div>
         <div class="repl-container p-2 border-t border-gray-700">
-            <div class="flex items-center">
-                <span class="prompt mr-2">&gt;</span>
-                <input type="text" id="repl-input" class="repl-input" autofocus autocomplete="off" spellcheck="false">
+            <div class="flex items-start relative">
+                <span class="prompt mr-2 mt-0.5">&gt;</span>
+                <div class="input-container flex-1">
+                    <textarea id="repl-input" class="repl-input" autofocus autocomplete="off" spellcheck="false" rows="1"></textarea>
+                </div>
+                <span class="text-xs text-gray-500 ml-2 mt-0.5 whitespace-nowrap">Shift + Enter 換行 / Enter 發送</span>
             </div>
         </div>
     </div>
@@ -136,6 +159,19 @@
                 }
 
                 if (char === '(' || char === ')' || char === ',') { tokens.push(new Token(TokenType.PUNCTUATION, char, line)); current++; continue; }
+                
+                // 添加比較運算符支援
+                if (char === '>' || char === '<' || char === '=' || char === '!') {
+                    let op = char;
+                    current++;
+                    if (current < code.length && code[current] === '=') {
+                        op += '=';
+                        current++;
+                    }
+                    tokens.push(new Token(TokenType.OPERATOR, op, line));
+                    continue;
+                }
+                
                 if (/[+\-*/]/.test(char)) { tokens.push(new Token(TokenType.OPERATOR, char, line)); current++; continue; }
                 if (/\d/.test(char)) { let value = ''; while (current < code.length && /[0-9.]/.test(code[current])) { value += code[current]; current++; } tokens.push(new Token(TokenType.NUMBER, parseFloat(value), line)); continue; }
                 
@@ -163,21 +199,85 @@
             return tokens;
         }
 
-        // 2. Parser (語法分析器) - 此處無更動
+        // 2. Parser (語法分析器)
         class Parser {
-            constructor(tokens) { this.tokens = tokens; this.current = 0; this.commandKeywords = ['say', 'repeat', 'add', 'remove', 'round', 'count', 'length', 'split', 'uppercase', 'lowercase', 'when', 'define', 'is', 'for', 'each', 'in']; }
+            constructor(tokens) {
+                this.tokens = tokens;
+                this.current = 0;
+                this.commandKeywords = ['say', 'repeat', 'add', 'remove', 'round', 'count', 'length', 'split', 'uppercase', 'lowercase', 'when', 'define', 'is', 'for', 'each', 'in'];
+            }
             levenshtein(a, b) { const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator,); } } return matrix[b.length][a.length]; }
             findSimilarKeyword(word) { let minDistance = Infinity; let suggestion = null; for (const keyword of this.commandKeywords) { const distance = this.levenshtein(word.toLowerCase(), keyword); if (distance <= 2 && distance < minDistance) { minDistance = distance; suggestion = keyword; } } return suggestion; }
             parse() { const stmts = []; while (!this.isAtEnd()) { stmts.push(this.parseStatement()); } return { type: 'Program', body: stmts }; }
             parseStatement() {
                 if (this.check(TokenType.IDENTIFIER) && this.peekNext().value === 'is') return this.parseAssignmentStatement();
                 if (this.match(TokenType.KEYWORD, 'say')) return this.parseSayStatement();
+                if (this.match(TokenType.KEYWORD, 'when')) return this.parseWhenStatement();
                 if (this.match(TokenType.KEYWORD, 'repeat')) return this.parseRepeatStatement();
                 if (this.match(TokenType.KEYWORD, 'add')) return this.parseAddStatement();
                 if (this.match(TokenType.KEYWORD, 'remove')) return this.parseRemoveStatement();
                 if (this.check(TokenType.IDENTIFIER)) { const potentialTypo = this.peek().value; const suggestion = this.findSimilarKeyword(potentialTypo); if (suggestion) { const directMessage = `我不認識 '${potentialTypo}' 這個指令。`; const whisper = `我猜，你是不是想寫 '${suggestion}'？光影搖曳，字詞有時也會跳錯舞步。`; throw this.createParseError(directMessage, whisper); } }
                 return this.parseExpressionStatement();
             }
+            
+            parseWhenStatement() {
+                const condition = this.parseComparison();
+                const thenBody = this.parseBlock();
+                
+                const elseIfBranches = [];
+                let elseBody = null;
+                
+                // 處理 else when 分支
+                while (this.match(TokenType.KEYWORD, 'else')) {
+                    if (this.match(TokenType.KEYWORD, 'when')) {
+                        // else when 分支
+                        const elseIfCondition = this.parseComparison();
+                        const elseIfBody = this.parseBlock();
+                        elseIfBranches.push({
+                            condition: elseIfCondition,
+                            body: elseIfBody
+                        });
+                    } else {
+                        // 純 else 分支
+                        elseBody = this.parseBlock();
+                        break; // else 必須是最後一個分支
+                    }
+                }
+                
+                this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束 when 語句。");
+                
+                return {
+                    type: 'WhenStatement',
+                    condition,
+                    thenBody,
+                    elseIfBranches,
+                    elseBody
+                };
+            }
+
+            // 添加比較表達式解析
+            parseComparison() {
+                let left = this.parseAddition();
+                
+                while (this.match(TokenType.OPERATOR, '>') || 
+                       this.match(TokenType.OPERATOR, '<') || 
+                       this.match(TokenType.OPERATOR, '>=') || 
+                       this.match(TokenType.OPERATOR, '<=') || 
+                       this.match(TokenType.OPERATOR, '==') || 
+                       this.match(TokenType.OPERATOR, '!=')) {
+                    const operator = this.tokens[this.current - 1].value;
+                    const right = this.parseAddition();
+                    left = {
+                        type: 'ComparisonExpression',
+                        left,
+                        operator,
+                        right
+                    };
+                }
+                
+                return left;
+            }
+            
             parseTerm() {
                 if (this.match(TokenType.NUMBER)) return { type: 'NumericLiteral', value: this.tokens[this.current - 1].value };
                 if (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
@@ -204,8 +304,23 @@
             parseAddStatement() { const value = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "在 'add' 的值後面需要 'to'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'to' 後面需要列表名稱。"); return { type: 'AddStatement', value, list: listName.value }; }
             parseAssignmentStatement() { const name = this.consume(TokenType.IDENTIFIER, null, "需要變數名稱。"); this.consume(TokenType.KEYWORD, 'is', "變數名稱後需要 'is'。"); const value = this.parseExpression(); return { type: 'AssignmentStatement', name: name.value, value }; }
             parseRepeatStatement() { if (this.match(TokenType.KEYWORD, 'for')) { this.consume(TokenType.KEYWORD, 'each', "在 'for' 後面需要 'each'。"); const variable = this.consume(TokenType.IDENTIFIER, null, "需要項目變數名稱。"); this.consume(TokenType.KEYWORD, 'in', "需要 'in' 關鍵字。"); const collection = this.parseExpression(); const body = this.parseBlock(); return { type: 'ForEachStatement', variable: variable.value, collection, body }; } else if (this.check(TokenType.IDENTIFIER) && this.peekNext().value === 'from') { const variable = this.consume(TokenType.IDENTIFIER, null, "需要計數變數名稱。"); this.consume(TokenType.KEYWORD, 'from', "需要 'from' 關鍵字。"); const start = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "需要 'to' 關鍵字。"); const end = this.parseExpression(); const body = this.parseBlock(); return { type: 'ForLoopStatement', variable: variable.value, start, end, body }; } else { const times = this.parseExpression(); const body = this.parseBlock(); return { type: 'RepeatStatement', times, body }; } }
-            parseBlock() { const body = []; while (!this.check(TokenType.KEYWORD, 'end') && !this.isAtEnd()) { body.push(this.parseStatement()); } this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束區塊。"); return body; }
-            parseExpression() { return this.parseAddition(); }
+            parseBlock() {
+                const body = [];
+                while (!this.check(TokenType.KEYWORD, 'end') && 
+                       !this.check(TokenType.KEYWORD, 'else') && 
+                       !this.isAtEnd()) {
+                    body.push(this.parseStatement());
+                }
+                
+                // parseBlock 不消費 end 或 else，讓調用者處理
+                return body;
+            }
+            
+            // 修改 parseExpression 方法
+            parseExpression() { 
+                return this.parseComparison(); 
+            }
+            
             parseAddition() { let left = this.parseMultiplication(); while (this.match(TokenType.OPERATOR, '+') || this.match(TokenType.OPERATOR, '-')) { const op = this.tokens[this.current - 1].value; const right = this.parseMultiplication(); left = { type: 'BinaryExpression', left, operator: op, right }; } return left; }
             parseMultiplication() { let left = this.parseUnary(); while (this.match(TokenType.OPERATOR, '*') || this.match(TokenType.OPERATOR, '/')) { const op = this.tokens[this.current - 1].value; const right = this.parseUnary(); left = { type: 'BinaryExpression', left, operator: op, right }; } return left; }
             parseUnary() { if (this.match(TokenType.OPERATOR, '-')) { const operator = this.tokens[this.current - 1].value; const right = this.parseUnary(); return { type: 'UnaryExpression', operator: operator, right: right }; } return this.parseAccess(); }
@@ -229,6 +344,17 @@
         // 3. Evaluator (執行器)
         class Evaluator {
             constructor() { this.environment = {}; }
+            
+            // 添加 isTruthy 方法
+            isTruthy(value) {
+                if (value === null || value === undefined) return false;
+                if (typeof value === 'boolean') return value;
+                if (typeof value === 'number') return value !== 0;
+                if (typeof value === 'string') return value.length > 0;
+                if (Array.isArray(value)) return value.length > 0;
+                return true;
+            }
+            
             evaluate(node, env) {
                 if (!node) return;
                 try {
@@ -244,6 +370,55 @@
                             return result;
                         case 'StringLiteral': return node.value;
                         case 'AssignmentStatement': env[node.name] = this.evaluate(node.value, env); return env[node.name];
+                        
+                        // 添加 WhenStatement 處理
+                        case 'WhenStatement':
+                            const conditionResult = this.evaluate(node.condition, env);
+                            if (this.isTruthy(conditionResult)) {
+                                let lastVal;
+                                node.thenBody.forEach(stmt => {
+                                    lastVal = this.evaluate(stmt, env);
+                                });
+                                return lastVal;
+                            }
+                            
+                            // 檢查 else when 分支
+                            for (const elseIfBranch of node.elseIfBranches || []) {
+                                const elseIfResult = this.evaluate(elseIfBranch.condition, env);
+                                if (this.isTruthy(elseIfResult)) {
+                                    let lastVal;
+                                    elseIfBranch.body.forEach(stmt => {
+                                        lastVal = this.evaluate(stmt, env);
+                                    });
+                                    return lastVal;
+                                }
+                            }
+                            
+                            // 最後檢查 else 分支
+                            if (node.elseBody) {
+                                let lastVal;
+                                node.elseBody.forEach(stmt => {
+                                    lastVal = this.evaluate(stmt, env);
+                                });
+                                return lastVal;
+                            }
+                            break;
+                            
+                        // 添加 ComparisonExpression 處理
+                        case 'ComparisonExpression':
+                            const leftVal = this.evaluate(node.left, env);
+                            const rightVal = this.evaluate(node.right, env);
+                            
+                            switch (node.operator) {
+                                case '>': return leftVal > rightVal;
+                                case '<': return leftVal < rightVal;
+                                case '>=': return leftVal >= rightVal;
+                                case '<=': return leftVal <= rightVal;
+                                case '==': return leftVal == rightVal;
+                                case '!=': return leftVal != rightVal;
+                                default: throw this.createRuntimeError(`未知的比較運算符: ${node.operator}`);
+                            }
+                        
                         case 'AddStatement': const valueToAdd = this.evaluate(node.value, env); if (!(node.list in env)) throw this.createRuntimeError(`找不到名為 '${node.list}' 的列表。`); const listToAddTo = env[node.list]; if (!Array.isArray(listToAddTo)) throw this.createRuntimeError(`只能對列表使用 'add to'。`); listToAddTo.push(valueToAdd); return listToAddTo;
                         case 'RemoveStatement': if (!(node.list in env)) throw this.createRuntimeError(`找不到名為 '${node.list}' 的列表。`); const listToRemoveFrom = env[node.list]; if (!Array.isArray(listToRemoveFrom)) throw this.createRuntimeError(`只能對列表使用 'remove from'。`); const indexToRemove = this.evaluate(node.index, env); if (indexToRemove < 1 || indexToRemove > listToRemoveFrom.length) throw this.createRuntimeError("移除項目失敗：列表索引超出範圍。"); listToRemoveFrom.splice(indexToRemove - 1, 1); return listToRemoveFrom;
                         case 'ListLiteral': return node.elements.map(el => this.evaluate(el, env));
@@ -274,6 +449,26 @@
         const outputEl = document.getElementById('repl-output');
         const inputEl = document.getElementById('repl-input');
         const evaluator = new Evaluator();
+        
+        // 自動調整 textarea 高度
+        function adjustHeight() {
+            inputEl.style.height = 'auto';
+            const newHeight = Math.min(inputEl.scrollHeight, 200); // 最大高度 200px
+            inputEl.style.height = newHeight + 'px';
+            
+            // 如果內容超過最大高度，顯示滾動條
+            if (inputEl.scrollHeight > 200) {
+                inputEl.style.overflowY = 'auto';
+            } else {
+                inputEl.style.overflowY = 'hidden';
+            }
+        }
+        
+        inputEl.addEventListener('input', adjustHeight);
+        
+        // 初始調整高度
+        adjustHeight();
+        
         function addOutputLine(text, className = '') {
             const line = document.createElement('div');
             line.className = `output-line ${className}`;
@@ -282,38 +477,50 @@
         }
         addOutputLine('Welcome to Lyra REPL v1.10!');
         addOutputLine('Error system is now enhanced for invalid names.');
-        addOutputLine('Try: <span class="text-green-400">my-name is "Lyra"</span>');
+        addOutputLine('Try: <span class="text-green-400">when 5 > 3 say "Hello" end</span>');
         addOutputLine('&nbsp;');
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                const command = inputEl.value;
-                if (command.trim() === '') return;
-                addOutputLine(`<span class="prompt mr-2">&gt;</span><span>${command}</span>`, 'flex');
-                try {
-                    const tokens = tokenize(command);
-                    const parser = new Parser(tokens);
-                    const ast = parser.parse();
-                    const result = evaluator.evaluate(ast, evaluator.environment);
-                    if (result !== undefined) {
-                        let displayValue = result.isSay ? result.value : result;
-                        if (Array.isArray(displayValue)) {
-                            displayValue = `[${displayValue.map(item => JSON.stringify(item)).join(', ')}]`;
+                if (e.shiftKey) {
+                    // Shift + Enter: 換行
+                    // 不阻止默認行為，讓瀏覽器自然換行
+                    setTimeout(() => adjustHeight(), 0);
+                } else {
+                    // Enter: 執行代碼
+                    e.preventDefault();
+                    const command = inputEl.value;
+                    if (command.trim() === '') return;
+                    
+                    addOutputLine(`<span class="prompt mr-2">&gt;</span><span>${command.replace(/\n/g, '<br>')}</span>`, 'flex');
+                    
+                    try {
+                        const tokens = tokenize(command);
+                        const parser = new Parser(tokens);
+                        const ast = parser.parse();
+                        const result = evaluator.evaluate(ast, evaluator.environment);
+                        if (result !== undefined) {
+                            let displayValue = result.isSay ? result.value : result;
+                            if (Array.isArray(displayValue)) {
+                                displayValue = `[${displayValue.map(item => JSON.stringify(item)).join(', ')}]`;
+                            }
+                            addOutputLine(`=> ${displayValue}`, 'output-result');
                         }
-                        addOutputLine(`=> ${displayValue}`, 'output-result');
+                    } catch (error) {
+                        if (error instanceof LyraError) {
+                            const errorLineHTML = `<div class="flex"><span class="w-7 text-left">⚠️</span><span>Error : ${error.message}</span></div>`;
+                            addOutputLine(errorLineHTML, 'output-error');
+                            const whisperLineHTML = `<div class="flex"><span class="w-7 text-left">✏️</span><span>Lyra 的低語 : ${error.whisper}</span></div>`;
+                            addOutputLine(whisperLineHTML, 'output-whisper');
+                        } else {
+                            const systemErrorLineHTML = `<div class="flex"><span class="w-7 text-left">⚙️</span><span>System Error : ${error.message}</span></div>`;
+                            addOutputLine(systemErrorLineHTML, 'output-error');
+                        }
                     }
-                } catch (error) {
-                    if (error instanceof LyraError) {
-                        const errorLineHTML = `<div class="flex"><span class="w-7 text-left">⚠️</span><span>Error : ${error.message}</span></div>`;
-                        addOutputLine(errorLineHTML, 'output-error');
-                        const whisperLineHTML = `<div class="flex"><span class="w-7 text-left">✏️</span><span>Lyra 的低語 : ${error.whisper}</span></div>`;
-                        addOutputLine(whisperLineHTML, 'output-whisper');
-                    } else {
-                        const systemErrorLineHTML = `<div class="flex"><span class="w-7 text-left">⚙️</span><span>System Error : ${error.message}</span></div>`;
-                        addOutputLine(systemErrorLineHTML, 'output-error');
-                    }
+                    
+                    inputEl.value = '';
+                    adjustHeight(); // 重置高度
+                    outputEl.scrollTop = outputEl.scrollHeight;
                 }
-                inputEl.value = '';
-                outputEl.scrollTop = outputEl.scrollHeight;
             }
         });
     </script>
