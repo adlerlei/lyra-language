@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v2.1.0)</title>
+    <title>Lyra 互動式環境 (REPL v2.2.0)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500&family=Noto+Serif+TC:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -67,7 +67,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v2.1.0 - terminal Emulator</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v2.2.0 - terminal Emulator</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -429,6 +429,26 @@
                             }
                             return results;
                         
+                            case 'ForEachStatement':
+                                const collection = this.evaluate(node.collection, env);
+                                if (!Array.isArray(collection)) {
+                                    throw this.createRuntimeError("只能對列表使用 'repeat for each'。");
+                                }
+                                const forEachResults = [];
+                                for (const item of collection) {
+                                    // 為每次迴圈建立一個新的、繼承自外部環境的獨立環境
+                                    const loopEnv = Object.create(env);
+                                    loopEnv[node.variable] = item; // 將當前項目設置為迴圈變數
+
+                                    node.body.forEach(stmt => {
+                                        const result = this.evaluate(stmt, loopEnv);
+                                        if (result !== undefined) {
+                                            forEachResults.push(result);
+                                        }
+                                    });
+                                }
+                                return forEachResults;
+
                         // 添加 WhenStatement 處理
                         case 'WhenStatement':
                             const conditionResult = this.evaluate(node.condition, env);
@@ -533,7 +553,7 @@
             line.innerHTML = text;
             outputEl.appendChild(line);
         }
-        addOutputLine('Welcome to Lyra REPL v2.1.0!');
+        addOutputLine('Welcome to Lyra REPL v2.2.0!');
         addOutputLine('Lyra Terminal Playground , try it and have fun!');
         addOutputLine('Try: <span class="text-green-400">when 5 > 3 say "Hello" end</span>');
         addOutputLine('&nbsp;');

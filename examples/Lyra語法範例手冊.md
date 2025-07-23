@@ -183,7 +183,7 @@ say words # -> ["Lyra", "is", "fun"]
 
 ```lyra
 say 5 + 2 * 3   # -> 11
-say (5 + 2) * 3 # -> 21 <- 尚未實作到 repl
+say (5 + 2) * 3 # -> 21
 say 10 / 2 - 1  # -> 4
 say -4.5 + 2    # -> -2.5
 ```
@@ -202,9 +202,9 @@ say round of -4.5 # -> -4
 
 ## 6. 流程控制 (Control Flow)
 
-> **注意**：目前我們的 REPL 互動環境尚不支援多行輸入，因此以下範例暫時無法在 REPL 中直接測試。
+Lyra 的 REPL 互動式環境支援多行輸入 (使用 `Shift + Enter` 換行)，讓您可以輕鬆測試複雜的邏輯區塊。
 
-### 6.1 `repeat ... times` (計次迴圈) <- 尚未實作到 repl
+### 6.1 `repeat ... times` (計次迴圈)
 
 重複執行一個區塊固定的次數。
 
@@ -212,16 +212,53 @@ say round of -4.5 # -> -4
 repeat 3 times
     say "這是一次重複"
 end
+# 預期輸出:
+# 這是一次重複
+# 這是一次重複
+# 這是一次重複
 ```
 
-### 6.2 `repeat for each ... in ...` (遍歷迴圈) <- 尚未實作到 repl
+### 6.2 `repeat for each ... in ...` (遍歷迴圈)
 
 遍歷一個列表中的每一個項目。
 
 ```lyra
-my_list is a list of "a", "b", "c"
-repeat for each item in my_list
-    say "現在的項目是: " + item
+my_list is a list of "蘋果", "香蕉", "櫻桃"
+repeat for each fruit in my_list
+    say "我喜歡吃" + fruit
+end
+# 預期輸出:
+# 我喜歡吃蘋果
+# 我喜歡吃香蕉
+# 我喜歡吃櫻桃
+```
+
+#### 6.2.1 遍歷迴圈搭配字串內嵌
+
+遍歷迴圈特別適合與字串操作結合，創造動態的輸出內容。
+
+```lyra
+names is a list of "小明", "小華", "小美"
+repeat for each name in names
+    greeting is "你好，" + name + "！歡迎來到 Lyra 的世界。"
+    say greeting
+end
+# 預期輸出:
+# 你好，小明！歡迎來到 Lyra 的世界。
+# 你好，小華！歡迎來到 Lyra 的世界。
+# 你好，小美！歡迎來到 Lyra 的世界。
+```
+
+```lyra
+scores is a list of 85, 92, 78, 96
+repeat for each score in scores
+    when score >= 90
+        say "優秀成績：" + score + " 分"
+    else when score >= 80
+        say "良好成績：" + score + " 分"
+    else
+        say "需要加油：" + score + " 分"
+    end
 end
 ```
 
