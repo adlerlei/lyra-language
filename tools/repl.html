@@ -97,7 +97,7 @@
 
         // 1. Lexer (詞法分析器)
         const TokenType = { KEYWORD: '關鍵字', IDENTIFIER: '識別符', STRING: '文字', NUMBER: '數字', OPERATOR: '運算符', PUNCTUATION: '標點符號', EOF: '檔案結尾', INTERP_START: '內嵌開始', INTERP_END: '內嵌結束' };
-        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1, 'times': 1};
+        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1, 'times': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         
         function tokenize(code) {
@@ -316,7 +316,13 @@
                 throw this.createParseError("預期是數字、文字、列表或變數。");
             }
             parseExpressionStatement() { const expr = this.parseExpression(); return { type: 'ExpressionStatement', expression: expr }; }
-            parseRemoveStatement() { this.consume(TokenType.KEYWORD, 'item', "在 'remove' 後面需要 'item'。"); this.consume(TokenType.KEYWORD, 'at', "在 'item' 後面需要 'at'。"); const index = this.parseExpression(); this.consume(TokenType.KEYWORD, 'from', "在索引後需要 'from'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'from' 後面需要列表名稱。"); return { type: 'RemoveStatement', index, list: listName.value }; }
+            parseRemoveStatement() { 
+                this.consume(TokenType.KEYWORD, 'at', "在 'remove' 後面需要 'at'。"); 
+                const index = this.parseExpression(); 
+                this.consume(TokenType.KEYWORD, 'from', "在索引後需要 'from'。"); 
+                const listName = this.consume(TokenType.IDENTIFIER, null, "在 'from' 後面需要列表名稱。"); 
+                return { type: 'RemoveStatement', index, list: listName.value }; 
+            }
             parseAddStatement() { const value = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "在 'add' 的值後面需要 'to'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'to' 後面需要列表名稱。"); return { type: 'AddStatement', value, list: listName.value }; }
             parseAssignmentStatement() { const name = this.consume(TokenType.IDENTIFIER, null, "需要變數名稱。"); this.consume(TokenType.KEYWORD, 'is', "變數名稱後需要 'is'。"); const value = this.parseExpression(); return { type: 'AssignmentStatement', name: name.value, value }; }
             parseRepeatStatement() {
