@@ -1,0 +1,33 @@
+# 本範例展示 Lyra 中對列表 (List) 的各種操作。
+
+# 建立一個初始列表
+say "建立一個購物清單..."
+shopping_list is a list of "牛奶", "麵包", "雞蛋"
+say shopping_list
+say "--"
+
+# 1. 存取項目 (Accessing an item with 'at')
+# Lyra 的列表索引從 1 開始。
+say "清單上的第一項是："
+first_item is shopping_list at 1
+say first_item
+say "--"
+
+# 2. 計算長度 (Counting length with 'count of')
+say "清單上有幾項？"
+item_count is count of shopping_list
+say item_count
+say "--"
+
+# 3. 新增項目 (Adding an item with 'add ... to ...')
+say "在清單中加入「蘋果」..."
+add "蘋果" to shopping_list
+say shopping_list
+say "現在有 " + (count of shopping_list) + " 項了。"
+say "--"
+
+# 4. 移除項目 (Removing an item with 'remove at ... from ...')
+say "移除清單上的第二項（麵包）..."
+remove at 2 from shopping_list
+say "現在剩下："
+say shopping_list

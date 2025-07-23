@@ -1,0 +1,33 @@
+# Lyra 使用 'is' 關鍵字來宣告變數並賦值。
+# 變數名稱建議使用底線風格，例如 my_variable。
+
+# --- 基礎資料型別 ---
+
+# 文字 (String)，支援單引號和雙引號
+project_name is "Lyra"
+project_goal is 'Create a beautiful language'
+
+# 數字 (Number)，支援整數與浮點數
+version is 2.3
+release_year is 2025
+
+# 布林值 (Boolean)，只有 true 和 false
+is_core_complete is true
+has_gui is false
+
+
+# --- 複合資料型別 ---
+
+# 列表 (List)，可以包含任何型別的資料
+project_info is a list of project_name, version, is_core_complete
+
+
+# --- 使用變數 ---
+say "專案名稱：" + project_name
+say "目標：" + project_goal
+say "目前版本："
+say version
+say "核心功能是否完成？"
+say is_core_complete
+say "專案資訊列表："
+say project_info

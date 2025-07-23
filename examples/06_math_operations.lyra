@@ -1,0 +1,31 @@
+# 本範例展示 Lyra 中的數學運算。
+
+# 1. 四則運算 (Arithmetic)
+# Lyra 遵循先乘除後加減的規則。
+say "5 + 2 * 3 的結果是："
+say 5 + 2 * 3  # -> 11
+say "---"
+
+# Lyra 支援括號來控制運算優先級。
+say "(5 + 2) * 3 的結果是："
+say (5 + 2) * 3 # -> 21
+say "---"
+
+say "10 / 2 - 1 的結果是："
+say 10 / 2 - 1  # -> 4
+say "---"
+
+# 支援負數與浮點數
+say "-4.5 + 2 的結果是："
+say -4.5 + 2    # -> -2.5
+say "---"
+
+# 2. 四捨五入 (Rounding with 'round of')
+say "round of 3.14 的結果是："
+say round of 3.14 # -> 3
+
+say "round of 9.8 的結果是："
+say round of 9.8  # -> 10
+
+say "round of -4.5 的結果是："
+say round of -4.5 # -> -4

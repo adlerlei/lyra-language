@@ -1,0 +1,26 @@
+# 本範例展示 Lyra 中的迴圈結構。
+
+# 1. repeat ... times (計次迴圈)
+# 重複執行一個區塊固定的次數。
+say "--- 計次迴圈 ---"
+repeat 3 times
+    say "這是一次計次重複。"
+end
+say "---"
+
+
+# 2. repeat for each ... in ... (遍歷迴圈)
+# 遍歷一個列表中的每一個項目。
+say "--- 遍歷迴圈 (基礎) ---"
+my_list is a list of "a", "b", "c"
+repeat for each item in my_list
+    say "現在的項目是: " + item
+end
+say "---"
+
+# 搭配字串內嵌的遍歷迴圈，寫法更簡潔。
+say "--- 遍歷迴圈 (搭配字串內嵌) ---"
+fruits is a list of "蘋果", "香蕉", "櫻桃"
+repeat for each fruit in fruits
+    say "我喜歡吃 {fruit}！"
+end

@@ -1,0 +1,7 @@
+# say 是 Lyra 用於在畫面上顯示訊息的關鍵字。
+# 它可以印出文字 (String) 和數字 (Number)。
+
+say "你好，Lyra 的世界。"
+say 123
+say 3.14159
+say true
