@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v2.0.3)</title>
+    <title>Lyra 互動式環境 (REPL v2.1.0)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500&family=Noto+Serif+TC:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -67,7 +67,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v1.10 - Error Enhancement</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v2.1.0 - terminal Emulator</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -97,7 +97,7 @@
 
         // 1. Lexer (詞法分析器)
         const TokenType = { KEYWORD: '關鍵字', IDENTIFIER: '識別符', STRING: '文字', NUMBER: '數字', OPERATOR: '運算符', PUNCTUATION: '標點符號', EOF: '檔案結尾', INTERP_START: '內嵌開始', INTERP_END: '內嵌結束' };
-        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1};
+        const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'item': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1, 'times': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         
         function tokenize(code) {
@@ -279,14 +279,30 @@
             }
             
             parseTerm() {
+                // 新增：處理括號表達式
+                if (this.match(TokenType.PUNCTUATION, '(')) {
+                    const expr = this.parseExpression();
+                    this.consume(TokenType.PUNCTUATION, ')', "在表達式後需要一個 ')' 來閉合括號。");
+                    return expr;
+                }
+                
                 if (this.match(TokenType.NUMBER)) return { type: 'NumericLiteral', value: this.tokens[this.current - 1].value };
                 if (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
-                    if (this.check(TokenType.STRING) && this.peekNext().type !== TokenType.INTERP_START) { const token = this.tokens[this.current++]; return { type: 'StringLiteral', value: token.value }; }
+                    if (this.check(TokenType.STRING) && this.peekNext().type !== TokenType.INTERP_START) {
+                        const token = this.tokens[this.current++];
+                        return { type: 'StringLiteral', value: token.value };
+                    }
                     const parts = [];
                     while (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
-                        if (this.match(TokenType.STRING)) { parts.push(this.tokens[this.current - 1].value); } 
-                        else if (this.match(TokenType.INTERP_START)) { const expr = this.parseExpression(); parts.push(expr); this.consume(TokenType.INTERP_END, null, "字串內嵌需要 '}' 來閉合。"); } 
-                        else { break; }
+                        if (this.match(TokenType.STRING)) {
+                            parts.push(this.tokens[this.current - 1].value);
+                        } else if (this.match(TokenType.INTERP_START)) {
+                            const expr = this.parseExpression();
+                            parts.push(expr);
+                            this.consume(TokenType.INTERP_END, null, "字串內嵌需要 '}' 來閉合。");
+                        } else {
+                            break;
+                        }
                     }
                     return { type: 'InterpolatedString', parts };
                 }
@@ -303,7 +319,33 @@
             parseRemoveStatement() { this.consume(TokenType.KEYWORD, 'item', "在 'remove' 後面需要 'item'。"); this.consume(TokenType.KEYWORD, 'at', "在 'item' 後面需要 'at'。"); const index = this.parseExpression(); this.consume(TokenType.KEYWORD, 'from', "在索引後需要 'from'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'from' 後面需要列表名稱。"); return { type: 'RemoveStatement', index, list: listName.value }; }
             parseAddStatement() { const value = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "在 'add' 的值後面需要 'to'。"); const listName = this.consume(TokenType.IDENTIFIER, null, "在 'to' 後面需要列表名稱。"); return { type: 'AddStatement', value, list: listName.value }; }
             parseAssignmentStatement() { const name = this.consume(TokenType.IDENTIFIER, null, "需要變數名稱。"); this.consume(TokenType.KEYWORD, 'is', "變數名稱後需要 'is'。"); const value = this.parseExpression(); return { type: 'AssignmentStatement', name: name.value, value }; }
-            parseRepeatStatement() { if (this.match(TokenType.KEYWORD, 'for')) { this.consume(TokenType.KEYWORD, 'each', "在 'for' 後面需要 'each'。"); const variable = this.consume(TokenType.IDENTIFIER, null, "需要項目變數名稱。"); this.consume(TokenType.KEYWORD, 'in', "需要 'in' 關鍵字。"); const collection = this.parseExpression(); const body = this.parseBlock(); return { type: 'ForEachStatement', variable: variable.value, collection, body }; } else if (this.check(TokenType.IDENTIFIER) && this.peekNext().value === 'from') { const variable = this.consume(TokenType.IDENTIFIER, null, "需要計數變數名稱。"); this.consume(TokenType.KEYWORD, 'from', "需要 'from' 關鍵字。"); const start = this.parseExpression(); this.consume(TokenType.KEYWORD, 'to', "需要 'to' 關鍵字。"); const end = this.parseExpression(); const body = this.parseBlock(); return { type: 'ForLoopStatement', variable: variable.value, start, end, body }; } else { const times = this.parseExpression(); const body = this.parseBlock(); return { type: 'RepeatStatement', times, body }; } }
+            parseRepeatStatement() {
+                if (this.match(TokenType.KEYWORD, 'for')) {
+                    this.consume(TokenType.KEYWORD, 'each', "在 'for' 後面需要 'each'。");
+                    const variable = this.consume(TokenType.IDENTIFIER, null, "需要項目變數名稱。");
+                    this.consume(TokenType.KEYWORD, 'in', "需要 'in' 關鍵字。");
+                    const collection = this.parseExpression();
+                    const body = this.parseBlock();
+                    this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束 repeat for each 語句。");
+                    return { type: 'ForEachStatement', variable: variable.value, collection, body };
+                } else if (this.check(TokenType.IDENTIFIER) && this.peekNext().value === 'from') {
+                    // This is an unlisted feature, but we'll make it robust too.
+                    const variable = this.consume(TokenType.IDENTIFIER, null, "需要計數變數名稱。");
+                    this.consume(TokenType.KEYWORD, 'from', "需要 'from' 關鍵字。");
+                    const start = this.parseExpression();
+                    this.consume(TokenType.KEYWORD, 'to', "需要 'to' 關鍵字。");
+                    const end = this.parseExpression();
+                    const body = this.parseBlock();
+                    this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束 repeat from to 語句。");
+                    return { type: 'ForLoopStatement', variable: variable.value, start, end, body };
+                } else {
+                    const times = this.parseExpression();
+                    this.consume(TokenType.KEYWORD, 'times', "在 repeat 的次數後面需要 'times' 關鍵字。");
+                    const body = this.parseBlock();
+                    this.consume(TokenType.KEYWORD, 'end', "需要 'end' 來結束 repeat times 語句。");
+                    return { type: 'RepeatStatement', times, body };
+                }
+            }
             parseBlock() {
                 const body = [];
                 while (!this.check(TokenType.KEYWORD, 'end') && 
@@ -370,6 +412,22 @@
                             return result;
                         case 'StringLiteral': return node.value;
                         case 'AssignmentStatement': env[node.name] = this.evaluate(node.value, env); return env[node.name];
+                        
+                        case 'RepeatStatement':
+                            const repetitions = this.evaluate(node.times, env);
+                            if (typeof repetitions !== 'number' || repetitions < 0) {
+                                throw this.createRuntimeError("repeat times 的次數必須是一個非負數。");
+                            }
+                            const results = [];
+                            for (let i = 0; i < repetitions; i++) {
+                                node.body.forEach(stmt => {
+                                    const result = this.evaluate(stmt, env);
+                                    if (result !== undefined) {
+                                        results.push(result);
+                                    }
+                                });
+                            }
+                            return results;
                         
                         // 添加 WhenStatement 處理
                         case 'WhenStatement':
@@ -475,8 +533,8 @@
             line.innerHTML = text;
             outputEl.appendChild(line);
         }
-        addOutputLine('Welcome to Lyra REPL v1.10!');
-        addOutputLine('Error system is now enhanced for invalid names.');
+        addOutputLine('Welcome to Lyra REPL v2.1.0!');
+        addOutputLine('Lyra Terminal Playground , try it and have fun!');
         addOutputLine('Try: <span class="text-green-400">when 5 > 3 say "Hello" end</span>');
         addOutputLine('&nbsp;');
         inputEl.addEventListener('keydown', (e) => {
@@ -498,12 +556,26 @@
                         const parser = new Parser(tokens);
                         const ast = parser.parse();
                         const result = evaluator.evaluate(ast, evaluator.environment);
-                        if (result !== undefined) {
-                            let displayValue = result.isSay ? result.value : result;
-                            if (Array.isArray(displayValue)) {
-                                displayValue = `[${displayValue.map(item => JSON.stringify(item)).join(', ')}]`;
+
+                        if (result !== undefined && result !== null) {
+                            // 新增：處理陣列結果 (來自 repeat 迴圈)
+                            if (Array.isArray(result)) {
+                                result.forEach(item => {
+                                    if (item !== undefined && item !== null) {
+                                        const displayValue = item.isSay ? item.value : item;
+                                        addOutputLine(`=> ${JSON.stringify(displayValue)}`, 'output-result');
+                                    }
+                                });
+                            } else {
+                                // 維持原有邏輯處理單一結果
+                                let displayValue = result.isSay ? result.value : result;
+                                if (Array.isArray(displayValue)) {
+                                     displayValue = `[${displayValue.map(item => JSON.stringify(item)).join(', ')}]`;
+                                } else if (typeof displayValue === 'object' && displayValue !== null) {
+                                    displayValue = JSON.stringify(displayValue);
+                                }
+                                addOutputLine(`=> ${displayValue}`, 'output-result');
                             }
-                            addOutputLine(`=> ${displayValue}`, 'output-result');
                         }
                     } catch (error) {
                         if (error instanceof LyraError) {
