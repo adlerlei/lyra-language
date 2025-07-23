@@ -44,26 +44,17 @@ say my_name # -> Lyra
 
 為了讓程式碼清晰且避免錯誤，Lyra 的變數名稱有以下建議規則：
 
-- **允許的字元**：可使用英文字母 (`a-z`, `A-Z`)、數字 (`0-9`) 和底線 (`_`)。
-- **建議的風格**：使用底線來分隔單字，例如 `my_first_variable`。
-- **禁止的字元**：不可包含空格或特殊符號，尤其是連字號 (`-`)，因為它會被誤認為減法運算。
-
-```lyra
-# 正確的範例
-first_name is "John"
-age_2 is 30
-
-# 錯誤的範例
-# my-name is "Jane"  <- 將會導致錯誤
-```
+  - **允許的字元**：可使用英文字母 (`a-z`, `A-Z`)、數字 (`0-9`) 和底線 (`_`)。
+  - **建議的風格**：使用底線來分隔單字，例如 `my_first_variable`。
+  - **禁止的字元**：不可包含空格或特殊符號，尤其是連字號 (`-`)，因為它會被誤認為減法運算。
 
 ### 2.3 文字 (String)
 
-用**雙引號 `"`** 包覆的字元序列。單引號 `'` 目前不支援。
+用**雙引號 `"`** 或 **單引號 `'`** 包覆的字元序列。
 
 ```lyra
 greeting is "Hello, "
-target is "World"
+target is 'World'
 full_message is greeting + target # 文字可以相加
 say full_message # -> Hello, World
 ```
@@ -84,8 +75,23 @@ say result # -> -9990
 用 `a list of ...` 語法建立的有序集合，項目間以逗號 `,` 分隔。
 
 ```lyra
-shopping_list is a list of "牛奶", "麵包", 2 # 列表可以包含不同型別
-say shopping_list # -> ["牛奶", "麵包", 2]
+shopping_list is a list of "牛奶", "麵包", 2, true # 列表可以包含不同型別
+say shopping_list # -> ["牛奶", "麵包", 2, true]
+```
+
+### 2.6 布林值 (Boolean)
+
+代表邏輯上的「真」與「假」，只有 `true` 和 `false` 兩個值。
+
+```lyra
+is_raining is false
+is_sunny is true
+
+when is_raining
+    say "出門記得帶傘。"
+else
+    say "今天天氣很好！"
+end
 ```
 
 ---
@@ -126,15 +132,15 @@ say fruits # -> ["蘋果", "香蕉", "櫻桃", "橘子"]
 
 ### 3.4 移除項目 (Removing an item)
 
-使用 `remove item at ... from ...` 語法。
+使用 `remove at ... from ...` 語法。
 
 ```lyra
-remove item at 2 from fruits # 移除 "香蕉"
+remove at 2 from fruits # 移除 "香蕉"
 say fruits # -> ["蘋果", "櫻桃", "橘子"]
 ```
 
-> **設計理念：為什麼需要 `item`？**  
-> 我們使用 `remove item at ...` 而非更簡潔的 `remove at ...`，是為了貫徹 Lyra 的核心精神。`remove item at 2` 讀起來像一句完整的自然語言：「移除在位置 2 的那個項目」，它描述了一個完整的「意圖」，而不只是一個技術性的「命令」。
+> **設計理念：簡潔性與一致性**  
+> 我們將語法從 `remove item at ...` 簡化為 `remove at ...`。這個決策是為了釋放 `item` 這個詞，使其不再是關鍵字，這樣開發者就可以在 `repeat for each item in ...` 這樣的迴圈中自由地使用它。這體現了 Lyra 在追求自然語感的同時，更重視核心語法的簡潔與一致性，避免潛在的衝突。
 
 ---
 
