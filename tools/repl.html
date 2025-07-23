@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyra 互動式環境 (REPL v2.2.0)</title>
+    <title>Lyra 互動式環境 (REPL v2.3.0)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500&family=Noto+Serif+TC:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -67,7 +67,7 @@
                 <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div class="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
-            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v2.2.0 - terminal Emulator</p>
+            <p class="text-center text-gray-300 text-sm flex-grow">Lyra REPL v2.3.0 - terminal Emulator</p>
         </div>
 
         <div id="repl-output" class="repl-container p-4 flex-grow overflow-y-auto">
@@ -96,7 +96,7 @@
         }
 
         // 1. Lexer (詞法分析器)
-        const TokenType = { KEYWORD: '關鍵字', IDENTIFIER: '識別符', STRING: '文字', NUMBER: '數字', OPERATOR: '運算符', PUNCTUATION: '標點符號', EOF: '檔案結尾', INTERP_START: '內嵌開始', INTERP_END: '內嵌結束' };
+        const TokenType = { KEYWORD: '關鍵字', IDENTIFIER: '識別符', STRING: '文字', NUMBER: '數字', BOOLEAN: '布林值', OPERATOR: '運算符', PUNCTUATION: '標點符號', EOF: '檔案結尾', INTERP_START: '內嵌開始', INTERP_END: '內嵌結束' };
         const KEYWORDS = {'define': 1, 'say': 1, 'when': 1, 'else': 1, 'end': 1, 'is': 1, 'repeat': 1, 'from': 1, 'to': 1, 'a': 1, 'list': 1, 'of': 1, 'at': 1, 'for': 1, 'each': 1, 'in': 1, 'count': 1, 'add': 1, 'remove': 1, 'length': 1, 'uppercase': 1, 'lowercase': 1, 'split': 1, 'by': 1, 'round': 1, 'times': 1};
         class Token { constructor(type, value, line) { this.type = type; this.value = value; this.line = line; } }
         
@@ -188,8 +188,15 @@
                         const whisper = `變數的名字裡不能包含 '-' 符號，它會讓我想起減法。也許，溫柔的底線 '_' 會是更好的連結？`;
                         throw new LyraError(`${directMessage} (在第 ${line} 行)`, whisper);
                     }
-                    const type = KEYWORDS[value] ? TokenType.KEYWORD : TokenType.IDENTIFIER;
-                    tokens.push(new Token(type, value, line));
+                    
+                    // 新增：優先識別布林值
+                    if (value === 'true' || value === 'false') {
+                        tokens.push(new Token(TokenType.BOOLEAN, value === 'true', line));
+                    } else {
+                        // 維持原有邏輯
+                        const type = KEYWORDS[value] ? TokenType.KEYWORD : TokenType.IDENTIFIER;
+                        tokens.push(new Token(type, value, line));
+                    }
                     continue;
                 }
 
@@ -287,6 +294,10 @@
                 }
                 
                 if (this.match(TokenType.NUMBER)) return { type: 'NumericLiteral', value: this.tokens[this.current - 1].value };
+                
+                // 新增：處理布林值
+                if (this.match(TokenType.BOOLEAN)) return { type: 'BooleanLiteral', value: this.tokens[this.current - 1].value };
+
                 if (this.check(TokenType.STRING) || this.check(TokenType.INTERP_START)) {
                     if (this.check(TokenType.STRING) && this.peekNext().type !== TokenType.INTERP_START) {
                         const token = this.tokens[this.current++];
@@ -515,6 +526,8 @@
                         case 'UnaryExpression': const rightUnary = this.evaluate(node.right, env); if (node.operator === '-') { if (typeof rightUnary !== 'number') { throw this.createRuntimeError("一元運算符 '-' 只能用於數字。"); } return -rightUnary; } return rightUnary;
                         case 'BinaryExpression': const left = this.evaluate(node.left, env); const right = this.evaluate(node.right, env); if (node.operator === '*') return left * right; if (node.operator === '/') return left / right; if (node.operator === '+') return left + right; if (node.operator === '-') return left - right; break;
                         case 'NumericLiteral': return node.value;
+                        // 新增：處理布林值
+                        case 'BooleanLiteral': return node.value;
                         case 'Identifier': if (node.name in env) return env[node.name]; throw this.createRuntimeError( `找不到名為 '${node.name}' 的變數。`, `「${node.name}」，一個未曾在我記憶中寫下的名字。能否用 '${node.name} is ...' 將它的故事告訴我，讓它在程式的宇宙中擁有意義？` );
                         case 'SayStatement': const outputValue = this.evaluate(node.value, env); return { isSay: true, value: outputValue };
                     }
@@ -559,9 +572,9 @@
             line.innerHTML = text;
             outputEl.appendChild(line);
         }
-        addOutputLine('Welcome to Lyra REPL v2.2.0!');
-        addOutputLine('Lyra Terminal Playground , try it and have fun!');
-        addOutputLine('Try: <span class="text-green-400">when 5 > 3 say "Hello" end</span>');
+        addOutputLine('Welcome to Lyra REPL v2.3.0!');
+        addOutputLine('Lyra Terminal Playground');
+        addOutputLine('try it and have fun ... ');
         addOutputLine('&nbsp;');
         inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
