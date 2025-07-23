@@ -1,0 +1,48 @@
+# 本範例展示 Lyra 中的 `when` 條件判斷結構。
+
+# 1. 基本條件判斷
+# 當條件為真時，執行區塊內的程式碼。
+say "--- 基本條件判斷 ---"
+age is 20
+when age >= 18
+    say "你是成年人了！"
+end
+say "---"
+
+
+# 2. 雙分支條件判斷 (when ... else ... end)
+# 當條件為真時執行第一個區塊，否則執行 else 區塊。
+say "--- 雙分支條件判斷 ---"
+temperature is 25
+when temperature > 30
+    say "天氣太熱了！"
+else
+    say "天氣很舒適。"
+end
+say "---"
+
+
+# 3. 多條件判斷 (else when)
+# 支援多個條件的連續判斷，類似其他語言的 else if。
+say "--- 多條件判斷 ---"
+score is 85
+when score >= 90
+    say "優秀！A級成績"
+else when score >= 80
+    say "良好！B級成績"
+else when score >= 60
+    say "及格！C級成績"
+else
+    say "需要加油！"
+end
+say "---"
+
+
+# 4. 搭配布林值的實用範例
+say "--- 搭配布林值 ---"
+is_raining is false
+when is_raining
+    say "出門記得帶傘。"
+else
+    say "今天天氣很好，不用帶傘。"
+end

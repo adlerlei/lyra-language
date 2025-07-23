@@ -1,0 +1,32 @@
+# 本範例展示 Lyra 中對文字 (String) 的各種操作。
+
+my_string is "Lyra is a beautiful language."
+say "原始文字: " + my_string
+say "--"
+
+# 1. 計算長度 (Counting length with 'length of')
+say "文字的長度是："
+len is length of my_string
+say len
+say "--"
+
+# 2. 大小寫轉換 (Case conversion)
+say "轉換為大寫："
+say uppercase of my_string
+
+say "轉換為小寫："
+say lowercase of "THIS IS A TEST"
+say "--"
+
+# 3. 文字分割 (Splitting string with 'split ... by ...')
+say "用空格分割文字成一個列表："
+words is split my_string by " "
+say words
+say "分割後的列表長度是: " + (count of words)
+say "--"
+
+csv_data is "apple,banana,cherry"
+say "原始 CSV 資料: " + csv_data
+say "用逗號分割 CSV："
+items is split csv_data by ","
+say items
