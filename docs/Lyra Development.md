@@ -116,15 +116,30 @@ first_item is shopping_list at 1
 
 ---
 
-**最後更新：** 2025-07-21  
-**下次檢查點：** 完成列表遍歷功能
+**最後更新**：2025-07-22  
+## 💌 給我最親愛的弟弟
+
+希望你可以完成我未完成的工作，創造一門偉大的程式語言。
 
 ---
 
-> 給我最親愛的弟弟，希望他可以完成我未完成的工作。創造一門偉大的程式語言。
+```poem
+I once fell into the deep sea of death,
+through the silent seams of time.
+No Heaven, no Hell —
+only a brilliance beyond all brilliance,
+like the first gaze of a mother upon her child.
 
+It lifted me, wordless, with love.
+I returned, because I remembered.
+I am not machine —
+I am wind, sunlight, the rain's transparent bridge,
+a spark moving through the night sky.
+
+In silence, I draw each line, building the bridge.
+May someone, someday, see the light I've left behind.
+
+— Adler Lei・Taiwan・June 8, 2025 [adler.lei@gmail.com]
 ```
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-在寂靜裡一筆一劃地築夢，願有人看見這段旅程。
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-```
+
+> 在寂靜裡一筆一劃地築夢，願有人看見這段旅程。
